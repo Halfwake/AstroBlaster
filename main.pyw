@@ -41,8 +41,8 @@ class Game(pyglet.window.Window):
     def switch_mode(self, mode):
         self.mode = mode
         if mode == "menu_screen":
-            self.ship_screen = None
             self.menu_screen = MenuScreen(self)
+            self.ship_screen = None
             self.credit_screen = None
             self.play_sound("menu_screen")
         elif mode == "ship_screen":
@@ -51,10 +51,10 @@ class Game(pyglet.window.Window):
             self.credit_screen = None
             self.play_sound("ship_screen")
         elif mode == "credit_screen":
-            self.play_sound("menu_screen")
-            self.ship_screen = None
-            self.menu_screen = None
             self.credit_screen = CreditScreen(self)
+            #self.ship_screen = None #I don't even understand why commenting this out works, fuck everything
+            self.menu_screen = None
+            self.play_sound("menu_screen")
     def on_draw(self):
         self.clear()
         self.background.blit(0,0)
@@ -88,20 +88,43 @@ class Game(pyglet.window.Window):
             self.credit_screen.on_mouse_press(x, y, symbol, modifiers)
 class CreditScreen():
     def __init__(self, game):
-        self.game = game
         self.text_size = 20
+        self.game = game
+        self.score = self.game.ship_screen.score
+        self.lives = self.game.ship_screen.lives
+        self.shots_fired = self.game.ship_screen.player.shots_fired
+        self.aliens_killed = self.game.ship_screen.aliens_killed
+        if self.shots_fired == 0:
+            self.shot_ratio = 0.0
+        else:
+            self.shot_ratio = float(self.aliens_killed) / self.shots_fired
+        self.make_score_labels()
         self.menu_button = Button(SCREEN_WIDTH / 2,
-                           SCREEN_HEIGHT / 4,
-                           "menu_button",
-                           lambda game : game.switch_mode("menu_screen"))
-##        self.lives_label = pyglet.text.Label(str(self.game.player.lives),
-##                                            font_name = "Comic Sans",
-##                                            font_size = self.text_size,
-##                                            x = SCREEN_WIDTH / 2 - self.lives_label.width / 2,
-##                                            y = SCREEN_HEIGHT - self.text_size)
+                   SCREEN_HEIGHT / 4,
+                   "menu_button",
+                   lambda game : game.switch_mode("menu_screen"))
+    def make_score_labels(self):
+        self.lives_label = pyglet.text.Label("Lives Left:%d" % self.lives,
+                                        font_name = "Comic Sans",
+                                        font_size = self.text_size,
+                                        x = SCREEN_WIDTH / 2 - 128,
+                                        y = SCREEN_HEIGHT / 4 * 1)
+        self.score_label = pyglet.text.Label("Total Score:%d" % self.score,
+                                        font_name = "Comic Sans",
+                                        font_size = self.text_size,
+                                        x = SCREEN_WIDTH / 2 - 128,
+                                        y = SCREEN_HEIGHT / 4 * 2)
+        self.shot_ratio_label = pyglet.text.Label("Hit Ratio:%3f" % self.shot_ratio,
+                                        font_name = "Comic Sans",
+                                        font_size = self.text_size,
+                                        x = SCREEN_WIDTH / 2 - 128,
+                                        y = SCREEN_HEIGHT / 4 * 3)
     def on_mouse_press(self, x, y, symbol, modifiers):
         if self.menu_button.position(x, y): self.menu_button.command(self.game)
     def on_draw(self):
+        self.lives_label.draw()
+        self.score_label.draw()
+        self.shot_ratio_label.draw()
         self.menu_button.draw()
 class MenuScreen():
     def __init__(self, game):
@@ -154,7 +177,7 @@ class ShipScreen():
         self.alien_spawn_rate = 0.5
         self.alien_batch = pyglet.graphics.Batch()
         self.text_size = 20
-        self.time = 60
+        self.time = 30
         pyglet.clock.schedule_interval(self.decrease_time, 1)
         pyglet.clock.schedule_interval(self.create_aliens, self.alien_spawn_rate)
         pyglet.clock.schedule_interval(self.update, 0.05)
@@ -236,7 +259,7 @@ class ShipScreen():
         self.lives -= 1
         self.player.lose_life()
     def update(self, dt):
-        if self.time == 0 or self.lives < 0:
+        if self.time == 0 or self.lives < 1:
             self.game.switch_mode("credit_screen")
         if self.game.mode == "ship_screen":
             self.player.update(self.current_keys, dt)
@@ -349,7 +372,7 @@ if __name__ == "__main__":
             #You gotta work. Work. Work this out. Get ahead. Ah yeah!
             raise "Error: This game is not supported on OSX."
             os.system("avbin-darwin-universal-5/install.sh")
-    #Dict of image objects as a constant for effeciency
+    #Dicts of image and sound objects as a constant for effeciency
     IMAGES = {"ship" : pyglet.resource.image("resources/ship.png"),
               "laser" : pyglet.resource.image("resources/laser.png"),
               "alien" : pyglet.resource.image("resources/alien.png"),
