@@ -7,58 +7,111 @@ class Game(pyglet.window.Window):
     def __init__(self, width, height):
         super(Game, self).__init__(width, height)
         self.mode = ""
+        self.set_caption("AstroBlaster")
+        #self.set_icon(IMAGES["ship"]) #Doesn't work, maybe it can't be a png?
         self.background = IMAGES["background"]
-        self.ship_screen = ShipScreen(self)
-        self.menu_screen = MenuScreen(self)
         self.fps_display = pyglet.clock.ClockDisplay(color = (200.0, 200.0, 200.5, 200.0))
-        self.music_player = pyglet.media.Player()
+        self.make_music_players()
         self.switch_mode("menu_screen")
-        self.music_player.eos_action = "loop"
+    def make_music_players(self):
+        self.ship_screen_music = pyglet.media.Player()
+        self.ship_screen_music.queue(SOUNDS["ship_screen"])
+        self.ship_screen_music.eos_action = "loop"
+        self.menu_screen_music = pyglet.media.Player()
+        self.menu_screen_music.queue(SOUNDS["menu_screen"])
+        self.menu_screen_music.eos_action = "loop"
+        self.credit_screen_music = pyglet.media.Player()
+        self.credit_screen_music.queue(SOUNDS["credit_screen"])
+        self.credit_screen_music.eos_action = "loop"
     def on_close(self):
-        self.music_player.pause()
+        self.ship_screen_music.pause()
+        self.menu_screen_music.pause()
+        self.credit_screen_music.pause()
         self.close()
+    def play_sound(self, music):
+        self.ship_screen_music.pause()
+        self.menu_screen_music.pause()
+        self.credit_screen_music.pause()
+        if music == "ship_screen":
+            self.ship_screen_music.play()
+        elif music == "menu_screen":
+            self.menu_screen_music.play()
+        elif music == "credit_screen":
+            self.credit_screen_music.play()
     def switch_mode(self, mode):
         self.mode = mode
         if mode == "menu_screen":
-            self.music_player.pause()
-            self.music_player.next()
-            self.music_player.queue(SOUNDS["menu_screen"])
-            self.music_player.play()
+            self.ship_screen = None
+            self.menu_screen = MenuScreen(self)
+            self.credit_screen = None
+            self.play_sound("menu_screen")
         elif mode == "ship_screen":
-            self.music_player.pause()
-            self.music_player.next()
-            self.music_player.queue(SOUNDS["ship_screen"])
-            self.music_player.play()
+            self.ship_screen = ShipScreen(self)
+            self.menu_screen = None
+            self.credit_screen = None
+            self.play_sound("ship_screen")
+        elif mode == "credit_screen":
+            self.play_sound("menu_screen")
+            self.ship_screen = None
+            self.menu_screen = None
+            self.credit_screen = CreditScreen(self)
     def on_draw(self):
         self.clear()
+        self.background.blit(0,0)
         if self.mode == "ship_screen":
-            self.background.blit(0,0)
             self.ship_screen.on_draw()
             self.fps_display.draw()
         elif self.mode == "menu_screen":
             self.menu_screen.on_draw()
+        elif self.mode == "credit_screen":
+            self.credit_screen.on_draw()
     def on_key_press(self, symbol, modifiers):
         if self.mode == "ship_screen":
             self.ship_screen.on_key_press(symbol, modifiers)
         elif self.mode == "menu_screen":
+            pass
+        elif self.mode == "credit_screen":
             pass
     def on_key_release(self, symbol, modifiers):
         if self.mode == "ship_screen":
             self.ship_screen.on_key_release(symbol, modifiers)
         elif self.mode == "menu_screen":
             pass
+        elif self.mode == "credit_screen":
+            pass
     def on_mouse_press(self, x, y, symbol, modifiers):
         if self.mode == "ship_screen":
             pass
         elif self.mode == "menu_screen":
             self.menu_screen.on_mouse_press(x, y, symbol, modifiers)
-
+        elif self.mode == "credit_screen":
+            self.credit_screen.on_mouse_press(x, y, symbol, modifiers)
+class CreditScreen():
+    def __init__(self, game):
+        self.game = game
+        self.text_size = 20
+        self.menu_button = Button(SCREEN_WIDTH / 2,
+                           SCREEN_HEIGHT / 4,
+                           "menu_button",
+                           lambda game : game.switch_mode("menu_screen"))
+##        self.lives_label = pyglet.text.Label(str(self.game.player.lives),
+##                                            font_name = "Comic Sans",
+##                                            font_size = self.text_size,
+##                                            x = SCREEN_WIDTH / 2 - self.lives_label.width / 2,
+##                                            y = SCREEN_HEIGHT - self.text_size)
+    def on_mouse_press(self, x, y, symbol, modifiers):
+        if self.menu_button.position(x, y): self.menu_button.command(self.game)
+    def on_draw(self):
+        self.menu_button.draw()
 class MenuScreen():
     def __init__(self, game):
         self.game = game
         self.start_button = None
         self.exit_button = None
         self.make_menu_buttons()
+        self.title = pyglet.sprite.Sprite(IMAGES["title"])
+        self.title.x = SCREEN_WIDTH / 2 - self.title.width / 2
+        self.title.y = (SCREEN_HEIGHT / 4 * 3) 
     def on_mouse_press(self, x, y, symbol, modifiers):
         if self.start_button.position(x, y): self.start_button.command(self.game)
         if self.exit_button.position(x, y): self.exit_button.command()
@@ -70,8 +123,10 @@ class MenuScreen():
         self.exit_button = Button(SCREEN_WIDTH / 2,
                                    SCREEN_HEIGHT / 4,
                                    "exit_button",
-                                   lambda : (self.game.music_player.pause() or True) and (self.game.close() or True))
+                                  #lol wat is this below me
+                                   lambda : (self.game.play_sound(None) or True) and (self.game.close() or True))
     def on_draw(self):
+        self.title.draw()
         self.start_button.draw()
         self.exit_button.draw()
 class Button(pyglet.sprite.Sprite):
@@ -91,6 +146,7 @@ class ShipScreen():
         self.game = game
         self.player = Ship()
         self.events = []
+        self.aliens_killed = 0 #self.player.shots_fired = #use this for hit percentage
         self.current_keys = []
         self.score = 0
         self.lives = 3
@@ -98,9 +154,11 @@ class ShipScreen():
         self.alien_spawn_rate = 0.5
         self.alien_batch = pyglet.graphics.Batch()
         self.text_size = 20
+        self.time = 60
+        pyglet.clock.schedule_interval(self.decrease_time, 1)
         pyglet.clock.schedule_interval(self.create_aliens, self.alien_spawn_rate)
         pyglet.clock.schedule_interval(self.update, 0.05)
-        pyglet.clock.schedule_interval(self.collision_update, 0.10)
+        pyglet.clock.schedule_interval(self.collision_update, 0.05)
         pyglet.clock.schedule_interval(self.unfreeze_laser, self.player.laser_delay)
         self.score_text = pyglet.text.Label(str(self.lives),
                                             font_name = "Comic Sans",
@@ -111,7 +169,14 @@ class ShipScreen():
                                             font_name = "Comic Sans",
                                             font_size = self.text_size,
                                             x = 0,
-                                            y = SCREEN_HEIGHT - (2 * self.text_size))
+                                            y = SCREEN_HEIGHT - (2 * self.text_size) - (self.text_size / 5 * 1))
+        self.time_text = pyglet.text.Label(str(self.time),
+                                            font_name = "Comic Sans",
+                                            font_size = self.text_size,
+                                            x = 0,
+                                            y = SCREEN_HEIGHT - (3 * self.text_size) - (self.text_size / 5 * 2))
+    def decrease_time(self, dt):
+        self.time -= 1
     def unfreeze_laser(self, dt):
         if self.game.mode == "ship_screen":
             self.player.laser_wait = False  
@@ -121,12 +186,16 @@ class ShipScreen():
         self.alien_batch.draw()
         self.draw_lives()
         self.draw_score()
+        self.draw_time()
     def draw_lives(self):
-        self.lives_text.text = str(self.lives)
+        self.lives_text.text = str("%s%d" % ("Lives: ", self.lives))
         self.lives_text.draw()
     def draw_score(self):
-        self.score_text.text = str(self.score)
+        self.score_text.text = str("%s%d" % ("Score: ", self.score))
         self.score_text.draw()
+    def draw_time(self):
+        self.time_text.text = str("%s%d" % ("Time: ", self.time))
+        self.time_text.draw()
     def on_key_press(self, symbol, modifiers):
         "Runs every key press, adds held down keys to list of held down keys."
         self.current_keys.append(symbol)
@@ -137,7 +206,7 @@ class ShipScreen():
         "Spawns aliens periodically."
         if self.game.mode == "ship_screen":
             temp_alien = Alien(0,0, self.alien_batch)
-            temp_alien.x = random.randint(0 + temp_alien.display_width, SCREEN_WIDTH - temp_alien.display_width)
+            temp_alien.x = random.randint(0 + temp_alien.width, SCREEN_WIDTH - temp_alien.width)
             temp_alien.y = SCREEN_HEIGHT
             self.aliens.append(temp_alien)
     def collision_update(self, dt):
@@ -156,9 +225,10 @@ class ShipScreen():
             for laser in self.player.lasers:
                 if alien.collide(laser):
                     self.score += alien.points
+                    self.aliens_killed += 1
                     aliens_to_die.add(alien)
                     lasers_to_die.add(laser)
-        #These just run through the sets and does the actual deletion.
+        #These just run through the sets and do the actual deletion.
         for alien in aliens_to_die: alien.die(self.aliens)
         for laser in lasers_to_die: laser.die(self.player.lasers)
     def lose_life(self):
@@ -166,6 +236,8 @@ class ShipScreen():
         self.lives -= 1
         self.player.lose_life()
     def update(self, dt):
+        if self.time == 0 or self.lives < 0:
+            self.game.switch_mode("credit_screen")
         if self.game.mode == "ship_screen":
             self.player.update(self.current_keys, dt)
             for alien in self.aliens:
@@ -173,15 +245,15 @@ class ShipScreen():
 
 class Collide():
     def collide(self, other):
-        center_x = self.x + self.display_width / 2
-        center_y = self.y + self.display_width / 2
-        if other.x < center_x < other.x + other.display_width:
-            if other.y < center_y < other.y + other.display_height:
+        center_x = self.x + self.width / 2
+        center_y = self.y + self.width / 2
+        if other.x < center_x < other.x + other.width:
+            if other.y < center_y < other.y + other.height:
                 return True
-        center_x = other.x + other.display_width / 2
-        center_y = other.y + other.display_width / 2
-        if self.x < center_x < self.x + self.display_width:
-            if self.y < center_y < self.y + self.display_height:
+        center_x = other.x + other.width / 2
+        center_y = other.y + other.width / 2
+        if self.x < center_x < self.x + self.width:
+            if self.y < center_y < self.y + self.height:
                 return True
         return False
         
@@ -192,12 +264,10 @@ class Alien(pyglet.sprite.Sprite, Collide):
         self.batch = batch
         self.x = x
         self.y = y
-        self.display_width = 64
-        self.display_height = 64
-        self.speed = 200
+        self.speed = 150
         self.points = 100
     def update(self, dt, aliens):
-        if self.y + self.display_height < 0:
+        if self.y + self.height < 0:
             aliens.remove(self)
         self.y -= self.speed * dt
     def die(self, aliens):
@@ -206,8 +276,7 @@ class Alien(pyglet.sprite.Sprite, Collide):
 class Ship(pyglet.sprite.Sprite, Collide):
     def __init__(self):
         super(Ship, self).__init__(IMAGES["ship"])
-        self.display_height = 64
-        self.display_width = 64
+        self.shots_fired = 0 #Maybe useful
         self.speed = 250
         self.scale = 1.0
         self.laser_delay = 0.5
@@ -215,18 +284,18 @@ class Ship(pyglet.sprite.Sprite, Collide):
         self.lasers = []
         self.laser_batch = pyglet.graphics.Batch()
         self.x = SCREEN_WIDTH / 2
-        self.y = 0 + self.display_height
+        self.y = 0 + self.height
     def update(self, current_keys, dt):
         "Takes a list of keys being held down and delta time, it moves the player, and fires lasers PEW PEW"
         for laser in self.lasers:
             laser.update(dt, self.lasers)
         for current_key in current_keys:
             if current_key == key.UP:
-                if self.display_height + self.y + self.speed * dt < SCREEN_HEIGHT: self.y += self.speed * dt
+                if self.height + self.y + self.speed * dt < SCREEN_HEIGHT: self.y += self.speed * dt
             elif current_key == key.DOWN:
                 if self.y - self.speed * dt > 0: self.y -= self.speed * dt
             elif current_key == key.RIGHT:
-                if self.display_width + self.x + self.speed * dt < SCREEN_WIDTH: self.x += self.speed * dt
+                if self.width + self.x + self.speed * dt < SCREEN_WIDTH: self.x += self.speed * dt
             elif current_key == key.LEFT:
                 if self.x - self.speed * dt > 0: self.x -= self.speed * dt
             elif current_key == key.SPACE:
@@ -240,7 +309,8 @@ class Ship(pyglet.sprite.Sprite, Collide):
     def make_laser(self):
         "Makes a laser and adds it to the player instances list of lasers"
         SOUNDS["laser"].play()
-        self.lasers.append(Laser(self.x + (self.display_width / 2) - 4, self.y + self.display_height / 2, self.laser_batch))
+        self.shots_fired += 1
+        self.lasers.append(Laser(self.x + (self.width / 2) - 4, self.y + self.height / 2, self.laser_batch))
     def lose_life(self):
         "Causes the player to act as if they loss a life, the method that calls this one actaully effects the 'Game.lives' arg"
         pass
@@ -250,8 +320,6 @@ class Laser(pyglet.sprite.Sprite, Collide):
         self.batch = batch
         self.x = x
         self.y = y
-        self.display_height = 64
-        self.display_width = 4
         self.speed = 300
     def update(self, dt, lasers):
         "Moves the laser up, and if it goes outside the screen it's removed from the 'lasers' var passed in from 'Player'."
@@ -265,16 +333,34 @@ class Laser(pyglet.sprite.Sprite, Collide):
 
 if __name__ == "__main__":
     SCREEN_WIDTH, SCREEN_HEIGHT = 400, 600
+    try: #This will install avbin if needed, and it works on windows and linux!
+        pyglet.resource.image("resources/ship.png")
+    except:
+        if sys.platform.startswith("win"):
+            raise "Error: avbin.dll not found."
+        elif sys.platform.startswith("linux"):
+            os.system("avbin-linux-x86-32-7/install.sh")
+        elif sys.platform == "dawrwin":
+            #Note, osx doesn't work because the avbin devs don't care about it
+            #and left it in the dust. Just a small town OS living in a
+            #dangerious dog eat world. Lost it all at the gambling games.
+            #Working hard to fight the man. Didn't even really have a plan.
+            #But hey, man? You gotta work. Work. Work this out. Get ahead.
+            #You gotta work. Work. Work this out. Get ahead. Ah yeah!
+            raise "Error: This game is not supported on OSX."
+            os.system("avbin-darwin-universal-5/install.sh")
     #Dict of image objects as a constant for effeciency
     IMAGES = {"ship" : pyglet.resource.image("resources/ship.png"),
               "laser" : pyglet.resource.image("resources/laser.png"),
               "alien" : pyglet.resource.image("resources/alien.png"),
               "background" : pyglet.resource.image("resources/background.png"),
               "start_button" : pyglet.resource.image("resources/start_button.png"),
-              "exit_button" : pyglet.resource.image("resources/exit_button.png")}
-                ###NEED TO ADD MENU BUTTON IMAGES
+              "exit_button" : pyglet.resource.image("resources/exit_button.png"),
+              "menu_button" : pyglet.resource.image("resources/menu_button.png"),
+              "title" : pyglet.resource.image("resources/title.png")}
     SOUNDS = {"menu_screen" : pyglet.media.load("resources/menu1.ogg"),
               "ship_screen" : pyglet.media.load("resources/game1.ogg"),
+              "credit_screen" : pyglet.media.load("resources/credit1.ogg"),
               "laser" : pyglet.media.load("resources/laser1.ogg", streaming = False)}
     root = Game(SCREEN_WIDTH, SCREEN_HEIGHT)
     pyglet.app.run()
