@@ -52,7 +52,9 @@ class Game(pyglet.window.Window):
             self.play_sound("ship_screen")
         elif mode == "credit_screen":
             self.credit_screen = CreditScreen(self)
-            #self.ship_screen = None #I don't even understand why commenting this out works, fuck everything
+            #problem here solved by "self.unschedule_events()"
+            #in "ShipScreen", thank god!
+            self.ship_screen = None
             self.menu_screen = None
             self.play_sound("menu_screen")
     def on_draw(self):
@@ -198,6 +200,12 @@ class ShipScreen():
                                             font_size = self.text_size,
                                             x = 0,
                                             y = SCREEN_HEIGHT - (3 * self.text_size) - (self.text_size / 5 * 2))
+    def unschedule_events(self):
+        map(pyglet.clock.unschedule,[self.decrease_time,
+                                     self.create_aliens,
+                                     self.update,
+                                     self.collision_update,
+                                     self.unfreeze_laser,])
     def decrease_time(self, dt):
         self.time -= 1
     def unfreeze_laser(self, dt):
@@ -260,6 +268,7 @@ class ShipScreen():
         self.player.lose_life()
     def update(self, dt):
         if self.time == 0 or self.lives < 1:
+            self.unschedule_events() #cleans up events, also fixes a ton of shit
             self.game.switch_mode("credit_screen")
         if self.game.mode == "ship_screen":
             self.player.update(self.current_keys, dt)
