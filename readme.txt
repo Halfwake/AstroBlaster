@@ -1,5 +1,3 @@
-AstroBlaster by Andrew Patrick Dudash is licensed under a Creative Commons Attribution 3.0 Unported License.
-
 Mouse for menu
 Space to shoot
 
