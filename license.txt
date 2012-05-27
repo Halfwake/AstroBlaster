@@ -5,7 +5,7 @@ In the original BSD license, both occurrences of the phrase "COPYRIGHT HOLDERS A
 
 Here is the license template:
 
-Copyright (c) <YEAR>, <OWNER>
+Copyright (c) Andrew Patrick Dudash, 2012
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
