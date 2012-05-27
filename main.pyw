@@ -183,6 +183,7 @@ class ShipScreen():
         self.explosion_batch = pyglet.graphics.Batch()
         self.text_size = 20
         self.time = 30
+        self.critical_time = 5
         self.start_timer = 10
         self.explosions = []
         pyglet.clock.schedule_interval(self.decrease_time, 1)
@@ -282,7 +283,7 @@ class ShipScreen():
         self.lives -= 1
         self.player.lose_life()
     def timer(self, dt):
-        if self.time < 5:
+        if self.time < self.critical_time:
             SOUNDS["timer_beep"].play()
             pyglet.clock.schedule_once(lambda dt : SOUNDS["timer_beep"].play(), 0.5)
         elif self.time < self.start_timer:
