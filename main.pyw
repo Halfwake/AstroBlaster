@@ -342,7 +342,7 @@ class Ship(pyglet.sprite.Sprite, Collide):
     def __init__(self):
         super(Ship, self).__init__(IMAGES["ship"])
         self.shots_fired = 0 #Maybe useful
-        self.speed = 250
+        self.speed = 10
         self.scale = 1.0
         self.laser_delay = 0.5
         self.laser_wait = False
@@ -350,19 +350,37 @@ class Ship(pyglet.sprite.Sprite, Collide):
         self.laser_batch = pyglet.graphics.Batch()
         self.x = SCREEN_WIDTH / 2
         self.y = 0 + self.height
+    def add(self, axis, change):
+        if axis == "x":
+            self.x += change
+        elif axis == "y":
+            self.y += change
+    def move_tween(self, symbol, dt):
+        new_x, new_y = 0, 0
+        if symbol == key.UP:
+            if self.height + self.y + self.speed < SCREEN_HEIGHT: new_y = self.y + self.speed
+        elif symbol == key.DOWN:
+            if self.y - self.speed > 0: new_y = self.y - self.speed
+        elif symbol == key.RIGHT:
+            if self.width + self.x + self.speed < SCREEN_WIDTH: new_x = self.x + self.speed
+        elif symbol == key.LEFT:
+            if self.x - self.speed > 0: new_x = self.x - self.speed
+        if new_x != 0:
+            diff = new_x - self.x
+            change = diff / 5
+            for move in range(5): pyglet.clock.schedule_once(lambda dt : self.add("x", change), 1 / 5)
+        if new_y != 0:
+            diff = new_y - self.y
+            change = diff / 5
+            for move in range(5): pyglet.clock.schedule_once(lambda dt : self.add("y", change), 1 / 5)
+        
     def update(self, current_keys, dt):
         "Takes a list of keys being held down and delta time, it moves the player, and fires lasers PEW PEW"
         for laser in self.lasers:
             laser.update(dt, self.lasers)
         for current_key in current_keys:
-            if current_key == key.UP:
-                if self.height + self.y + self.speed * dt < SCREEN_HEIGHT: self.y += self.speed * dt
-            elif current_key == key.DOWN:
-                if self.y - self.speed * dt > 0: self.y -= self.speed * dt
-            elif current_key == key.RIGHT:
-                if self.width + self.x + self.speed * dt < SCREEN_WIDTH: self.x += self.speed * dt
-            elif current_key == key.LEFT:
-                if self.x - self.speed * dt > 0: self.x -= self.speed * dt
+            if current_key == key.UP or current_key == key.DOWN or current_key == key.RIGHT or current_key == key.LEFT:
+                self.move_tween(current_key, dt)
             elif current_key == key.SPACE:
                 if not self.laser_wait:
                     self.laser_wait = True
