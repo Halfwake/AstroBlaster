@@ -282,14 +282,17 @@ class ShipScreen():
         self.lives -= 1
         self.player.lose_life()
     def timer(self, dt):
-        if self.time < self.start_timer:
+        if self.time < 5:
+            SOUNDS["timer_beep"].play()
+            pyglet.clock.schedule_once(lambda dt : SOUNDS["timer_beep"].play(), 0.5)
+        elif self.time < self.start_timer:
             SOUNDS["timer_beep"].play()
             self.time_text.color = (255,0,0,255)
     def update(self, dt):
         if self.time == 0 or self.lives < 1:
             self.unschedule_events() #cleans up events, also fixes a ton of shit
-            SOUNDS["timer_beep"].play()
-            SOUNDS["timer_beep"].play()
+            for i in range(6):
+                pyglet.clock.schedule_once(lambda dt : SOUNDS["timer_beep"].play(), i / 20)
             self.game.switch_mode("credit_screen")
         if self.game.mode == "ship_screen":
             self.player.update(self.current_keys, dt)
