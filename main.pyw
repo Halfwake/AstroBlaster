@@ -2,6 +2,7 @@ import pyglet
 from pyglet.window import key
 import time
 import random
+import Queue
 
 class Game(pyglet.window.Window):
     def __init__(self, width, height):
@@ -12,6 +13,7 @@ class Game(pyglet.window.Window):
         self.background = IMAGES["background"]
         self.fps_display = pyglet.clock.ClockDisplay(color = (200.0, 200.0, 200.5, 200.0))
         self.make_music_players()
+        pyglet.clock.set_fps_limit(40) #Makes the game lag go away, no idea why. Maybe the fps goes too fast and it stutters?
         self.switch_mode("menu_screen")
     def make_music_players(self):
         self.ship_screen_music = pyglet.media.Player()
@@ -116,7 +118,7 @@ class CreditScreen():
                                         font_size = self.text_size,
                                         x = SCREEN_WIDTH / 2 - 128,
                                         y = SCREEN_HEIGHT / 4 * 2)
-        self.shot_ratio_label = pyglet.text.Label("Hit Ratio:%3f" % self.shot_ratio,
+        self.shot_ratio_label = pyglet.text.Label("Accuracy:%1.2f" % self.shot_ratio,
                                         font_name = "Comic Sans",
                                         font_size = self.text_size,
                                         x = SCREEN_WIDTH / 2 - 128,
@@ -178,13 +180,18 @@ class ShipScreen():
         self.aliens = []
         self.alien_spawn_rate = 0.5
         self.alien_batch = pyglet.graphics.Batch()
+        self.explosion_batch = pyglet.graphics.Batch()
         self.text_size = 20
         self.time = 30
+        self.start_timer = 10
+        self.explosions = []
         pyglet.clock.schedule_interval(self.decrease_time, 1)
         pyglet.clock.schedule_interval(self.create_aliens, self.alien_spawn_rate)
         pyglet.clock.schedule_interval(self.update, 0.05)
         pyglet.clock.schedule_interval(self.collision_update, 0.05)
         pyglet.clock.schedule_interval(self.unfreeze_laser, self.player.laser_delay)
+        pyglet.clock.schedule_interval(self.timer, 1)
+        pyglet.clock.schedule_interval(self.delete_explosion, 2)
         self.score_text = pyglet.text.Label(str(self.lives),
                                             font_name = "Comic Sans",
                                             font_size = self.text_size,
@@ -205,7 +212,13 @@ class ShipScreen():
                                      self.create_aliens,
                                      self.update,
                                      self.collision_update,
-                                     self.unfreeze_laser,])
+                                     self.unfreeze_laser,
+                                     self.timer,
+                                     self.delete_explosion])
+    def delete_explosion(self, dt):
+        for explosion in self.explosions:
+            explosion.batch = None
+        self.explosions = []
     def decrease_time(self, dt):
         self.time -= 1
     def unfreeze_laser(self, dt):
@@ -213,6 +226,7 @@ class ShipScreen():
             self.player.laser_wait = False  
     def on_draw(self):
         "Runs every frame"
+        self.explosion_batch.draw()
         self.player.draw()
         self.alien_batch.draw()
         self.draw_lives()
@@ -256,6 +270,7 @@ class ShipScreen():
             for laser in self.player.lasers:
                 if alien.collide(laser):
                     self.score += alien.points
+                    self.explosions.append(Explosion(laser.x, laser.y, self.explosion_batch))
                     self.aliens_killed += 1
                     aliens_to_die.add(alien)
                     lasers_to_die.add(laser)
@@ -266,16 +281,29 @@ class ShipScreen():
         "Handles life loss, and passes on the method to the 'Player' instance."
         self.lives -= 1
         self.player.lose_life()
+    def timer(self, dt):
+        if self.time < self.start_timer:
+            SOUNDS["timer_beep"].play()
+            self.time_text.color = (255,0,0,255)
     def update(self, dt):
         if self.time == 0 or self.lives < 1:
             self.unschedule_events() #cleans up events, also fixes a ton of shit
+            SOUNDS["timer_beep"].play()
+            SOUNDS["timer_beep"].play()
             self.game.switch_mode("credit_screen")
         if self.game.mode == "ship_screen":
             self.player.update(self.current_keys, dt)
             for alien in self.aliens:
                 alien.update(dt, self.aliens)
-
-class Collide():
+class Explosion(pyglet.sprite.Sprite):
+    def __init__(self, x, y, batch):
+        super(Explosion, self).__init__(IMAGES["explosion"])
+        self.x = x
+        self.y = y
+        self.batch = batch
+        self.duration = 2
+        
+class Collide(object):
     def collide(self, other):
         center_x = self.x + self.width / 2
         center_y = self.y + self.width / 2
@@ -389,10 +417,12 @@ if __name__ == "__main__":
               "start_button" : pyglet.resource.image("resources/start_button.png"),
               "exit_button" : pyglet.resource.image("resources/exit_button.png"),
               "menu_button" : pyglet.resource.image("resources/menu_button.png"),
-              "title" : pyglet.resource.image("resources/title.png")}
+              "title" : pyglet.resource.image("resources/title.png"),
+              "explosion" : pyglet.resource.animation('resources/kboom.gif')}
     SOUNDS = {"menu_screen" : pyglet.media.load("resources/menu1.ogg"),
               "ship_screen" : pyglet.media.load("resources/game1.ogg"),
               "credit_screen" : pyglet.media.load("resources/credit1.ogg"),
+              "timer_beep" : pyglet.media.load("resources/beep-7.ogg", streaming = False),
               "laser" : pyglet.media.load("resources/laser1.ogg", streaming = False)}
     root = Game(SCREEN_WIDTH, SCREEN_HEIGHT)
     pyglet.app.run()
