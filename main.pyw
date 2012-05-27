@@ -191,7 +191,7 @@ class ShipScreen():
         pyglet.clock.schedule_interval(self.collision_update, 0.05)
         pyglet.clock.schedule_interval(self.unfreeze_laser, self.player.laser_delay)
         pyglet.clock.schedule_interval(self.timer, 1)
-        pyglet.clock.schedule_interval(self.delete_explosion, 2)
+        pyglet.clock.schedule_interval(self.delete_explosion, 0.1)
         self.score_text = pyglet.text.Label(str(self.lives),
                                             font_name = "Comic Sans",
                                             font_size = self.text_size,
@@ -213,14 +213,14 @@ class ShipScreen():
                                      self.update,
                                      self.collision_update,
                                      self.unfreeze_laser,
-                                     self.timer,
-                                     self.delete_explosion])
-    def delete_explosion(self, dt):
-        for explosion in self.explosions:
-            explosion.batch = None
-        self.explosions = []
+                                     self.timer,])
     def decrease_time(self, dt):
         self.time -= 1
+    def delete_explosion(self, dt):
+        for explosion in self.explosions:
+            if explosion.popped == False:
+                explosion.popped = True
+                explosion.delete_explosion(self.explosions)
     def unfreeze_laser(self, dt):
         if self.game.mode == "ship_screen":
             self.player.laser_wait = False  
@@ -302,6 +302,11 @@ class Explosion(pyglet.sprite.Sprite):
         self.y = y
         self.batch = batch
         self.duration = 2
+        self.popped = False
+    def delete_explosion(self, explosions):
+        pyglet.clock.schedule_once(lambda dt : self.clear_batch() and explosions.pop(explosions.index(self)), 0.5)
+    def clear_batch(self):
+        self.batch = None
         
 class Collide(object):
     def collide(self, other):
